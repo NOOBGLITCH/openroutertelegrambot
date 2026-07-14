@@ -163,7 +163,7 @@ async function doAI(chatId, modelId, userMsg) {
   }
 
   let reply = content.trim();
-  if (usedModel !== modelId) reply += `\n\n_\\via ${escHtml(usedModel)}_`;
+  if (usedModel !== modelId) reply += `\n\n— ${usedModel}`;
 
   if (reply.length <= 4000) return trySend(chatId, reply);
 
