@@ -238,7 +238,7 @@ export default async function handler(req, res) {
       clearChat(cid);
       await sendRich(cid, `Hi, I am your AI assistant! 🤖\n\nDefault model: \`${DEFAULT_MODEL}\`\n\n**Commands:**\n- \`/help\` — show all\n- \`/remind\` — set a reminder\n- \`/reminders\` — list reminders\n- \`/model\` — show/set model\n- \`/prompt\` — show/set prompt\n- \`/new\` — clear history\n- \`/exit\` — reset all`);
     } else if (l.startsWith("/help")) {
-      await sendRich(cid, `**Commands**\n\n\`/start\` — reset everything\n\`/help\` — show this\n\`/remind\` — set reminder\n\`/reminders\` — list reminders\n\`/delreminder <id>\` — cancel a reminder\n\`/model\` — show/set model\n\`/prompt\` — show/set prompt\n\`/new\` — clear history\n\`/exit\` — reset all`);
+      await sendRich(cid, `**Commands**\n\n- \`/start\` — reset everything\n- \`/help\` — show this\n- \`/remind\` — set reminder\n- \`/reminders\` — list reminders\n- \`/delreminder <id>\` — cancel a reminder\n- \`/model\` — show/set model\n- \`/prompt\` — show/set prompt\n- \`/new\` — clear history\n- \`/exit\` — reset all`);
     } else if (l.startsWith("/remind")) {
       await handleRemind(cid, t);
     } else if (l.startsWith("/reminders")) {
