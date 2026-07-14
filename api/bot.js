@@ -97,9 +97,9 @@ export default async function handler(req, res) {
 
     if (l === "/start") {
       clearChat(cid);
-      await sendRich(cid, `Hi, I am your AI assistant! 🤖\n\nDefault model: \`${DEFAULT_MODEL}\`\n\n*Commands:*\n/help — show all`);
+      await sendRich(cid, `Hi, I am your AI assistant! 🤖\n\nDefault model: \`${DEFAULT_MODEL}\`\n\n**Commands:**\n- \`/help\` — show all commands\n- \`/model\` — show current model\n- \`/model <id>\` — set a custom model\n- \`/prompt\` — show system prompt\n- \`/prompt <text>\` — set a custom prompt\n- \`/prompt reset\` — remove custom prompt\n- \`/new\` — clear history\n- \`/exit\` — reset everything`);
     } else if (l.startsWith("/help")) {
-      await sendRich(cid, `*Available commands*\n\n/start — reset everything\n/help — show this\n/model — show current model\n/model <id> — set model\n/prompt — show system prompt\n/prompt <text> — set custom prompt\n/prompt reset — remove prompt\n/new — clear history\n/exit — reset all`);
+      await sendRich(cid, `**Available Commands**\n\n\`/start\` — reset everything\n\`/help\` — show this message\n\`/model\` — show current model\n\`/model <id>\` — set a custom model\n\`/prompt\` — show system prompt\n\`/prompt <text>\` — set a custom prompt\n\`/prompt reset\` — remove custom prompt\n\`/new\` — clear conversation history\n\`/exit\` — reset everything`);
     } else if (l.startsWith("/model")) {
       const a = t.slice(6).trim();
       if (a) { userModels[cid] = a; await sendRich(cid, `Model set to: \`${a}\``); }
@@ -108,11 +108,11 @@ export default async function handler(req, res) {
       const a = t.slice(7).trim();
       if (!a) {
         const c = userPrompts[cid];
-        await sendRich(cid, c ? `*System prompt:*\n${c}\n\nUse \`/prompt reset\` to remove.` : `No custom prompt.\nSet: \`/prompt You are helpful.\``);
-      } else if (a === "reset") { delete userPrompts[cid]; await sendRich(cid, "Prompt removed."); }
-      else { userPrompts[cid] = a; await sendRich(cid, "Prompt updated."); }
-    } else if (l === "/new") { delete userHistory[cid]; await sendRich(cid, "History cleared."); }
-    else if (l === "/exit") { clearChat(cid); await sendRich(cid, "Reset. Send anything to start."); }
+        await sendRich(cid, c ? `**System prompt:**\n\`${c}\`\n\nUse \`/prompt reset\` to remove.` : `No custom prompt set.\nSet one: \`/prompt You are helpful.\``);
+      } else if (a === "reset") { delete userPrompts[cid]; await sendRich(cid, `Prompt removed.`); }
+      else { userPrompts[cid] = a; await sendRich(cid, `Prompt updated.`); }
+    } else if (l === "/new") { delete userHistory[cid]; await sendRich(cid, `History cleared.`); }
+    else if (l === "/exit") { clearChat(cid); await sendRich(cid, `Reset. Send anything to start.`); }
     else { await doAI(cid, userModels[cid] || DEFAULT_MODEL, t); }
 
     res.status(200).json({ ok: true });
