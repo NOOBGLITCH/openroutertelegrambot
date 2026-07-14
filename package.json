@@ -1,0 +1,13 @@
+{
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "deploy": "tgcloud push",
+    "migrate": "tgcloud migrate",
+    "status": "tgcloud status",
+    "login": "tgcloud login"
+  },
+  "devDependencies": {
+    "@tgcloud/cli": "*"
+  }
+}
