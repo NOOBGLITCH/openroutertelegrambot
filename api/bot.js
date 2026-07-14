@@ -18,84 +18,13 @@ async function tg(method, payload) {
   return res.json();
 }
 
-// Send with MarkdownV2 for our own controlled messages
-async function sendMd(chatId, text) {
-  return tg("sendMessage", {
-    chat_id: chatId, text: escMd(text),
-    parse_mode: "MarkdownV2", link_preview_options: { is_disabled: true },
-  });
-}
-
-// Send AI response: try HTML first (forgiving), fallback plain
-async function sendAi(chatId, text) {
-  const html = mdToHtml(text);
-  const r = await tg("sendMessage", {
-    chat_id: chatId, text: html,
-    parse_mode: "HTML", link_preview_options: { is_disabled: true },
+async function sendRich(chatId, markdown) {
+  const r = await tg("sendRichMessage", {
+    chat_id: chatId, rich_message: { markdown }, link_preview_options: { is_disabled: true },
   });
   if (r.ok) return r;
-  return tg("sendMessage", {
-    chat_id: chatId, text: stripMd(text),
-  });
-}
-
-function escMd(t) {
-  return t.replace(/[_*[\]()~`>#+\-=|{}.!]/g, "\\$&");
-}
-
-function escHtml(t) {
-  return t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-}
-
-function mdToHtml(t) {
-  const blocks = [];
-  const lines = t.split("\n");
-  for (let i = 0; i < lines.length; i++) {
-    if (/^```(\w*)/.test(lines[i])) {
-      const lang = lines[i].match(/^```(\w*)/)[1];
-      let code = "";
-      for (i++; i < lines.length && !lines[i].startsWith("```"); i++)
-        code += lines[i] + "\n";
-      const inner = lang
-        ? `<code class="language-${lang}">${escHtml(code.trim())}</code>`
-        : escHtml(code.trim());
-      blocks.push(`<pre>${inner}</pre>`);
-    } else if (/^#{1,3}\s/.test(lines[i])) {
-      blocks.push(`<b>${escHtml(lines[i].replace(/^#+\s*/, ""))}</b>`);
-    } else if (/^>\s/.test(lines[i])) {
-      const q = [];
-      while (i < lines.length && /^>\s/.test(lines[i])) {
-        q.push(lines[i].replace(/^>\s*/, ""));
-        i++;
-      }
-      i--;
-      blocks.push(`<blockquote>${escHtml(q.join("\n"))}</blockquote>`);
-    } else if (/^[-*+]\s/.test(lines[i])) {
-      blocks.push(` • ${escHtml(lines[i].replace(/^[-*+]\s*/, ""))}`);
-    } else {
-      blocks.push(escHtml(lines[i]));
-    }
-  }
-
-  let h = blocks.join("\n");
-  h = h.replace(/\*\*(.+?)\*\*/g, "<b>$1</b>");
-  h = h.replace(/(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/g, "<i>$1</i>");
-  h = h.replace(/~~(.+?)~~/g, "<s>$1</s>");
-  h = h.replace(/`([^`]+)`/g, "<code>$1</code>");
-  h = h.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
-  return h;
-}
-
-function stripMd(t) {
-  return t
-    .replace(/```[\w]*\n[\s\S]*?```/g, m => m.replace(/```\w*\n/, "").replace(/```/, "").trim())
-    .replace(/`([^`]+)`/g, "$1")
-    .replace(/\*\*(.+?)\*\*/g, "$1")
-    .replace(/(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/g, "$1")
-    .replace(/~~(.+?)~~/g, "$1")
-    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, "$1 ($2)")
-    .replace(/^#+\s+/gm, "")
-    .replace(/^>\s+/gm, "");
+  const plain = markdown.replace(/```[\w]*\n[\s\S]*?```/g, "$&".replace(/```\w*\n/,"").replace(/```/,"")).replace(/[*_`#>[\]|~-]/g, "").replace(/\n{3,}/g, "\n").trim();
+  return tg("sendMessage", { chat_id: chatId, text: plain });
 }
 
 function buildMsgs(chatId, userMsg) {
@@ -124,10 +53,10 @@ async function doAI(chatId, modelId, userMsg) {
 
   const data = await res.json();
   if (!res.ok)
-    return sendMd(chatId, `Error: ${(data.error?.message || "").slice(0, 400)}`);
+    return sendRich(chatId, `Error: ${(data.error?.message || "").slice(0, 400)}`);
 
   const content = data.choices?.[0]?.message?.content || "";
-  if (!content) return sendMd(chatId, "Empty response.");
+  if (!content) return sendRich(chatId, "Empty response.");
 
   const usedModel = data.model || modelId;
 
@@ -140,20 +69,20 @@ async function doAI(chatId, modelId, userMsg) {
   let reply = content.trim();
   if (usedModel !== modelId) reply += `\n\n— ${usedModel}`;
 
-  if (reply.length <= 4000) return sendAi(chatId, reply);
+  if (reply.length <= 4000) return sendRich(chatId, reply);
 
   const parts = reply.split("\n\n");
   let chunk = "";
   for (const p of parts) {
     const c = chunk ? `${chunk}\n\n${p}` : p;
     if (c.length > 4000) {
-      if (chunk) await sendAi(chatId, chunk);
+      if (chunk) await sendRich(chatId, chunk);
       chunk = p.length > 4000 ? p.slice(0, 4000) : p;
     } else {
       chunk = c;
     }
   }
-  if (chunk) await sendAi(chatId, chunk);
+  if (chunk) await sendRich(chatId, chunk);
 }
 
 export default async function handler(req, res) {
@@ -168,28 +97,28 @@ export default async function handler(req, res) {
 
     if (l === "/start") {
       clearChat(cid);
-      await sendMd(cid, `Hi, I am your AI assistant! 🤖\n\nDefault model: \`${escMd(DEFAULT_MODEL)}\`\n\n*Commands:*\n/help — show all`);
+      await sendRich(cid, `Hi, I am your AI assistant! 🤖\n\nDefault model: \`${DEFAULT_MODEL}\`\n\n*Commands:*\n/help — show all`);
     } else if (l.startsWith("/help")) {
-      await sendMd(cid, `*Commands*\n/start — reset\n/help — this\n/model — show model\n/model <id> — set model\n/prompt — show prompt\n/prompt <text> — set prompt\n/prompt reset — remove\n/new — clear history\n/exit — reset all`);
+      await sendRich(cid, `*Available commands*\n\n/start — reset everything\n/help — show this\n/model — show current model\n/model <id> — set model\n/prompt — show system prompt\n/prompt <text> — set custom prompt\n/prompt reset — remove prompt\n/new — clear history\n/exit — reset all`);
     } else if (l.startsWith("/model")) {
       const a = t.slice(6).trim();
-      if (a) { userModels[cid] = a; await sendMd(cid, `Model set to: \`${escMd(a)}\``); }
-      else { await sendMd(cid, `Current: \`${escMd(userModels[cid] || DEFAULT_MODEL)}\`\nChange: \`/model <id>\``); }
+      if (a) { userModels[cid] = a; await sendRich(cid, `Model set to: \`${a}\``); }
+      else { await sendRich(cid, `Current model: \`${userModels[cid] || DEFAULT_MODEL}\`\n\nChange: \`/model <id>\``); }
     } else if (l.startsWith("/prompt")) {
       const a = t.slice(7).trim();
       if (!a) {
         const c = userPrompts[cid];
-        await sendMd(cid, c ? `*Prompt:*\n${escMd(c)}\n\n\`/prompt reset\` to remove` : `No custom prompt.\nSet: \`/prompt You are helpful.\``);
-      } else if (a === "reset") { delete userPrompts[cid]; await sendMd(cid, "Prompt removed."); }
-      else { userPrompts[cid] = a; await sendMd(cid, "Prompt updated."); }
-    } else if (l === "/new") { delete userHistory[cid]; await sendMd(cid, "History cleared."); }
-    else if (l === "/exit") { clearChat(cid); await sendMd(cid, "Reset. Send anything to start."); }
+        await sendRich(cid, c ? `*System prompt:*\n${c}\n\nUse \`/prompt reset\` to remove.` : `No custom prompt.\nSet: \`/prompt You are helpful.\``);
+      } else if (a === "reset") { delete userPrompts[cid]; await sendRich(cid, "Prompt removed."); }
+      else { userPrompts[cid] = a; await sendRich(cid, "Prompt updated."); }
+    } else if (l === "/new") { delete userHistory[cid]; await sendRich(cid, "History cleared."); }
+    else if (l === "/exit") { clearChat(cid); await sendRich(cid, "Reset. Send anything to start."); }
     else { await doAI(cid, userModels[cid] || DEFAULT_MODEL, t); }
 
     res.status(200).json({ ok: true });
   } catch (e) {
-    console.error("FATAL:", e);
-    try { await tg("sendMessage", { chat_id: req.body?.message?.chat?.id || 0, text: "Internal error" }); } catch {}
+    console.error(e);
+    try { await tg("sendMessage", { chat_id: req.body?.message?.chat?.id || 0, text: "Error" }); } catch {}
     res.status(200).json({ ok: true });
   }
 }
